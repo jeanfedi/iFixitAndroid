@@ -274,6 +274,9 @@
     <string name="reorder_steps">Reordenar Pasos</string>
     <string name="guide_create_confirm_leave_without_save_cancel">Cancelar</string>
     <string name="topic_background_description">Fondo de categoria</string>
+    <string name="empty_step_comments">No step comments.</string>
+    <string name="comments">Comments</string>
+    <string name="step_comments">Step Comments</string>
 
 
     <!-- Strings needing translations. -->

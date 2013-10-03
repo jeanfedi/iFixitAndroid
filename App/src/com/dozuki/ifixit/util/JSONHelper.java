@@ -147,6 +147,7 @@ public class JSONHelper {
       guide.setPublic(jGuide.getBoolean("public"));
       guide.setType(jGuide.getString("type"));
       guide.setPatrolThreshold(jGuide.getInt("patrol_threshold"));
+      guide.setComments(parseComments(jGuide.getJSONArray("comments")));
 
       if (jGuide.has("can_edit")) {
          guide.setCanEdit(jGuide.getBoolean("can_edit"));
@@ -165,6 +166,14 @@ public class JSONHelper {
       }
 
       return guide;
+   }
+
+   private static ArrayList<Comment> parseComments(JSONArray comments) throws JSONException {
+      ArrayList<Comment> result = new ArrayList<Comment>();
+      for (int i = 0; i < comments.length(); i++) {
+         result.add(new Comment(comments.getJSONObject(i)));
+      }
+      return result;
    }
 
    private static Item parsePart(JSONObject jPart) throws JSONException {
@@ -222,6 +231,8 @@ public class JSONHelper {
       for (int i = 0; i < jLines.length(); i++) {
          step.addLine(parseLine(jLines.getJSONObject(i)));
       }
+
+      step.setComments(parseComments(jStep.getJSONArray("comments")));
 
       return step;
    }

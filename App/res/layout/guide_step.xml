@@ -12,7 +12,7 @@
 
     <FrameLayout
         style="@style/GuideStepLinesWrap"
-        android:id="@+id/guide_step_lines"
+        android:id="@+id/guide_step_content"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"/>
 

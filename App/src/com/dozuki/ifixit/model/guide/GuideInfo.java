@@ -9,16 +9,16 @@ import java.util.Arrays;
 import java.util.List;
 
 public class GuideInfo implements Serializable {
-   private static final long serialVersionUID = 1L;
+   private static final long serialVersionUID = 3L;
 
    @SerializedName("guideid")
    public int mGuideid;
    @SerializedName("revisionid")
    public int mRevisionid;
    @SerializedName("modified_date")
-   public int mModifiedDate;
+   public double mModifiedDate;
    @SerializedName("prereq_modified_date")
-   public int mPrereqModifiedDate;
+   public double mPrereqModifiedDate;
    @SerializedName("type")
    public String mType;
    @SerializedName("category")
@@ -33,7 +33,12 @@ public class GuideInfo implements Serializable {
    public String[] mFlags;
    @SerializedName("image")
    public Image mImage;
-
+   @SerializedName("url")
+   public String mUrl;
+   @SerializedName("username")
+   public String mAuthorName;
+   @SerializedName("userid")
+   public int mUserid;
    @SerializedName("locale")
    public String mLocale;
 
@@ -48,7 +53,7 @@ public class GuideInfo implements Serializable {
       List<String> hasSubject = Arrays.asList("repair", "installation", "disassembly");
       //List<String> noSubject = Arrays.asList("technique", "maintenance", "teardown");
 
-       return mSubject != null && !mSubject.equals("") && hasSubject.contains(mType.toLowerCase());
+      return mSubject != null && !mSubject.equals("") && hasSubject.contains(mType.toLowerCase());
    }
 
    public boolean hasImage() {
@@ -56,9 +61,13 @@ public class GuideInfo implements Serializable {
    }
 
    public String getImagePath(String size) {
-      String path = mImage.getPath(size);
-      if (MainApplication.inDebug() && path.startsWith("https"))
-         path = path.replace("https", "http");
+      String path = "";
+      if (mImage != null) {
+         path = mImage.getPath(size);
+         if (MainApplication.inDebug() && path.startsWith("https")) {
+            path = path.replace("https", "http");
+         }
+      }
 
       return path;
    }

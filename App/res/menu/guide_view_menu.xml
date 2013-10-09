@@ -16,5 +16,4 @@
         android:title="@string/reload_guide"
         android:icon="@drawable/ic_action_refresh_dark"
         android:showAsAction="never"/>
-
 </menu>

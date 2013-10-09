@@ -34,36 +34,27 @@ dependencies {
    compile "com.mobeta.android.dslv:dslv:0.6.1"
 }
 
+// List of sites. Used to create signingConfigs and sourceSets.
+// Ideally this would be used to create the productFlavors too but there are
+// enough differences between flavors that it would be challenging to make it
+// better.
+def sites = ["ifixit", "dozuki", "accustream"]
+
 android {
    compileSdkVersion 18
    buildToolsVersion "18.0.1"
 
    defaultConfig {
-      versionCode 37
-      versionName "2.0.1"
+      versionCode 39
+      versionName "2.1.0"
       minSdkVersion 8
       targetSdkVersion 18
       packageName "com.dozuki.ifixit"
    }
 
    signingConfigs {
-      ifixit {
-         storeFile file("sites/ifixit/keystore")
-         keyAlias ifixitKeyAlias
-         storePassword ifixitStorePassword
-         keyPassword ifixitKeyPassword
-      }
-      dozuki {
-         storeFile file("sites/dozuki/keystore")
-         keyAlias dozukiKeyAlias
-         storePassword dozukiStorePassword
-         keyPassword dozukiKeyPassword
-      }
-      zealoptics {
-         storeFile file("sites/zealoptics/keystore")
-         keyAlias zealopticsKeyAlias
-         storePassword zealopticsStorePassword
-         keyPassword zealopticsKeyPassword
+      for (site in sites) {
+         "${site}" createSiteSigningConfig(site)
       }
    }
 
@@ -81,30 +72,23 @@ android {
       ifixit {
          signingConfig signingConfigs.ifixit
 
-         buildConfig 'public static final String SITE_NAME = "ifixit";', \
-                     'public static final String APP_ID = ' + ifixitAppId + ';'
+         buildConfig createSiteBuildConfig("ifixit", "UA-30506-9")
       }
 
       dozuki {
          signingConfig signingConfigs.dozuki
          packageName "com.dozuki.dozuki"
-         versionCode 34
-         versionName "2.0.0"
          minSdkVersion 9
-         targetSdkVersion 18
 
-         buildConfig 'public static final String SITE_NAME = "dozuki";', \
-                     'public static final String APP_ID = ' + dozukiAppId + ';'
+         buildConfig createSiteBuildConfig("dozuki", "UA-30506-19")
       }
 
-      zealoptics {
-         signingConfig signingConfigs.zealoptics
-         packageName "com.dozuki.zealoptics"
-         versionCode 34
-         versionName "2.0.0"
+      accustream {
+         signingConfig signingConfigs.accustream
+         packageName "com.dozuki.accustream"
+         minSdkVersion 9
 
-         buildConfig 'public static final String SITE_NAME = "zealoptics";', \
-                     'public static final String APP_ID = ' + zealopticsAppId + ';'
+         buildConfig createSiteBuildConfig("accustream", "UA-30506-19")
       }
    }
 
@@ -119,21 +103,34 @@ android {
          assets.srcDirs = ['assets']
       }
 
-      ifixit {
-         manifest.srcFile 'sites/ifixit/AndroidManifest.xml'
-         res.srcDirs = ["sites/ifixit/res"]
-      }
-
-      dozuki {
-         manifest.srcFile 'sites/dozuki/AndroidManifest.xml'
-         java.srcDirs = ["sites/dozuki/src"]
-         res.srcDirs = ["sites/dozuki/res"]
-      }
-
-      zealoptics {
-         manifest.srcFile 'sites/zealoptics/AndroidManifest.xml'
-         res.srcDirs = ["sites/zealoptics/res"]
+      for (site in sites) {
+         "${site}" createSiteSourceSet(site)
       }
    }
 }
 
+/* Various functions to create DSL for a site. */
+
+def createSiteSigningConfig(siteName) {
+   return {
+      storeFile file("sites/${siteName}/keystore")
+      keyAlias getProperty("${siteName}KeyAlias")
+      storePassword getProperty("${siteName}StorePassword")
+      keyPassword getProperty("${siteName}KeyPassword")
+   }
+}
+
+def createSiteSourceSet(siteName) {
+   return {
+      manifest.srcFile "sites/${siteName}/AndroidManifest.xml"
+      res.srcDirs = ["sites/${siteName}/res"]
+      java.srcDirs = ["sites/${siteName}/src"]
+   }
+}
+
+def createSiteBuildConfig(siteName, gaPropertyId) {
+   return "public static final String GA_PROPERTY_ID = \"${gaPropertyId}\";" +
+          "public static final String SEARCH_PROVIDER_AUTHORITY = \"com.dozuki.${siteName}.ui.search.SearchSuggestionProvider\";" +
+          "public static final String SITE_NAME = \"${siteName}\";\n" +
+          'public static final String APP_ID = ' + getProperty("${siteName}AppId") + ';'
+}

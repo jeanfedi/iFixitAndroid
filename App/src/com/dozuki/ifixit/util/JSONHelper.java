@@ -3,11 +3,25 @@ package com.dozuki.ifixit.util;
 import android.util.Log;
 import com.dozuki.ifixit.MainApplication;
 import com.dozuki.ifixit.R;
-import com.dozuki.ifixit.model.*;
+import com.dozuki.ifixit.model.Badges;
+import com.dozuki.ifixit.model.Embed;
+import com.dozuki.ifixit.model.Image;
+import com.dozuki.ifixit.model.Item;
+import com.dozuki.ifixit.model.Video;
+import com.dozuki.ifixit.model.VideoEncoding;
+import com.dozuki.ifixit.model.VideoThumbnail;
 import com.dozuki.ifixit.model.dozuki.Site;
 import com.dozuki.ifixit.model.gallery.GalleryEmbedList;
 import com.dozuki.ifixit.model.gallery.GalleryVideoList;
-import com.dozuki.ifixit.model.guide.*;
+import com.dozuki.ifixit.model.guide.Guide;
+import com.dozuki.ifixit.model.guide.GuideInfo;
+import com.dozuki.ifixit.model.guide.GuideStep;
+import com.dozuki.ifixit.model.guide.GuideType;
+import com.dozuki.ifixit.model.guide.OEmbed;
+import com.dozuki.ifixit.model.guide.StepLine;
+import com.dozuki.ifixit.model.search.GuideSearchResult;
+import com.dozuki.ifixit.model.search.SearchResults;
+import com.dozuki.ifixit.model.search.TopicSearchResult;
 import com.dozuki.ifixit.model.topic.TopicLeaf;
 import com.dozuki.ifixit.model.topic.TopicNode;
 import com.dozuki.ifixit.model.user.User;
@@ -20,12 +34,61 @@ import org.json.JSONObject;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
-import java.util.*;
+import java.net.URLDecoder;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 public class JSONHelper {
    private static final String TAG = "JSONHelper";
    private static final String INVALID_LOGIN_STRING = "Invalid login";
+
+   public static SearchResults parseSearchResults(String json) throws JSONException {
+
+      SearchResults search = new SearchResults();
+      JSONObject response = new JSONObject(json);
+
+      search.mLimit = response.getInt("limit");
+      search.mOffset = response.getInt("offset");
+      search.mTotalResults = response.getInt("totalResults");
+      search.mHasMoreResults = response.getBoolean("moreResults");
+      search.mQuery = response.getString("search");
+
+      if (response.has("results")) {
+         JSONArray resultsArr = response.getJSONArray("results");
+         int count = resultsArr.length();
+
+         for (int i = 0; i < count; i++) {
+            JSONObject result = resultsArr.getJSONObject(i);
+            String resultType = result.getString("dataType");
+            if (resultType.equals("guide")) {
+               Type guidesType = new TypeToken<GuideInfo>() {}.getType();
+               GuideInfo gi = new Gson().fromJson(result.toString(), guidesType);
+
+               GuideSearchResult gsr = new GuideSearchResult(gi);
+               search.mResults.add(gsr);
+            } else if (resultType.equals("wiki")) {
+               TopicSearchResult tsr = new TopicSearchResult();
+               tsr.mDisplayTitle = result.getString("display_title");
+               tsr.mTitle = result.getString("title");
+               tsr.mText = result.getString("text");
+               tsr.mNamespace = result.getString("namespace");
+               tsr.mSummary = result.getString("summary");
+               tsr.mUrl = result.getString("url");
+               tsr.mImage = parseImage(result, "image");
+
+               search.mResults.add(tsr);
+            }
+         }
+      }
+
+      return search;
+   }
 
    public static ArrayList<Site> parseSites(String json) throws JSONException {
       ArrayList<Site> sites = new ArrayList<Site>();
@@ -49,13 +112,13 @@ public class JSONHelper {
 
       site.mName = jSite.getString("name");
       site.mDomain = jSite.getString("domain");
-      site.mCustomDomain = jSite.has("custom_domain") ? jSite.getString("custom_domain") : "";
+      site.mCustomDomain = jSite.optString("custom_domain", "");
       site.mTitle = jSite.getString("title");
       site.mTheme = jSite.getString("theme");
       site.mPublic = !jSite.getBoolean("private");
       site.mDescription = jSite.getString("description");
       site.mAnswers = jSite.getBoolean("answers");
-      site.mStoreUrl = jSite.has("store") ? jSite.getString("store") : "";
+      site.mStoreUrl = jSite.optString("store", "");
 
       setAuthentication(site, jSite.getJSONObject("authentication"));
 
@@ -219,7 +282,7 @@ public class JSONHelper {
             step.addVideo(parseVideo(jVideo));
          } else if (type.equals("embed")) {
             JSONObject jEmbed = jMedia.getJSONObject("data");
-            step.addEmbed(parseEmbed(jEmbed));
+            step.addEmbed(new Embed(jEmbed));
          }
 
       } catch (JSONException e) {
@@ -235,19 +298,6 @@ public class JSONHelper {
       step.setComments(parseComments(jStep.getJSONArray("comments")));
 
       return step;
-   }
-
-   public static Map<String, String> getQueryMap(String url) {
-      String query = url.substring(url.indexOf('?') + 1);
-      String[] params = query.split("&");
-      Map<String, String> map = new HashMap<String, String>();
-      for (String param : params) {
-         String name = param.split("=")[0];
-         String value = param.split("=")[1];
-         map.put(name, value);
-      }
-
-      return map;
    }
 
    private static Video parseVideo(JSONObject jVideo) throws JSONException {
@@ -289,25 +339,6 @@ public class JSONHelper {
    private static VideoEncoding parseVideoEncoding(JSONObject jVideoEncoding) throws JSONException {
       return new VideoEncoding(jVideoEncoding.getInt("width"), jVideoEncoding.getInt("height"),
         jVideoEncoding.getString("url"), jVideoEncoding.getString("format"));
-   }
-
-   private static Embed parseEmbed(JSONObject jEmbed) throws JSONException {
-      Embed em = new Embed(jEmbed.getInt("width"), jEmbed.getInt("height"),
-       jEmbed.getString("type"), jEmbed.getString("url"));
-      em.setContentURL(getQueryMap(jEmbed.getString("url")).get("url"));
-      return em;
-   }
-
-   public static OEmbed parseOEmbed(String embed) throws JSONException {
-
-      JSONObject jOEmbed = new JSONObject(embed);
-      String thumbnail = null;
-      if (jOEmbed.has("thumbnail_url")) {
-         thumbnail = jOEmbed.getString("thumbnail_url");
-      }
-      Document doc = Jsoup.parse(jOEmbed.getString("html"));
-      return new OEmbed(jOEmbed.getString("html"),
-       doc.getElementsByAttribute("src").get(0).attr("src"), thumbnail);
    }
 
    private static StepLine parseLine(JSONObject jLine) throws JSONException {

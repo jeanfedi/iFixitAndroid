@@ -6,22 +6,26 @@ import android.speech.SpeechRecognizer;
 import android.support.v4.view.ViewPager;
 import android.util.Log;
 import android.view.View;
+
 import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuItem;
 import com.dozuki.ifixit.MainApplication;
 import com.dozuki.ifixit.R;
 import com.dozuki.ifixit.model.Comment;
+import com.dozuki.ifixit.model.dozuki.Site;
 import com.dozuki.ifixit.model.guide.Guide;
 import com.dozuki.ifixit.ui.BaseMenuDrawerActivity;
 import com.dozuki.ifixit.ui.guide.CommentsFragment;
 import com.dozuki.ifixit.ui.guide.create.GuideIntroActivity;
 import com.dozuki.ifixit.ui.guide.create.StepEditActivity;
 import com.dozuki.ifixit.ui.guide.create.StepsActivity;
+import com.dozuki.ifixit.util.APIError;
 import com.dozuki.ifixit.util.APIEvent;
 import com.dozuki.ifixit.util.APIService;
 import com.dozuki.ifixit.util.SpeechCommander;
 import com.google.analytics.tracking.android.Fields;
 import com.google.analytics.tracking.android.MapBuilder;
+import com.google.analytics.tracking.android.StandardExceptionParser;
 import com.google.analytics.tracking.android.Tracker;
 import com.squareup.otto.Subscribe;
 import com.viewpagerindicator.TitlePageIndicator;
@@ -32,6 +36,8 @@ import java.util.List;
 public class GuideViewActivity extends BaseMenuDrawerActivity implements
  ViewPager.OnPageChangeListener {
 
+   private static final int DEFAULT_INBOUND_STEPID = -1;
+
    private static final String NEXT_COMMAND = "next";
    private static final String PREVIOUS_COMMAND = "previous";
    private static final String HOME_COMMAND = "home";
@@ -39,6 +45,7 @@ public class GuideViewActivity extends BaseMenuDrawerActivity implements
    public static final String CURRENT_PAGE = "CURRENT_PAGE";
    public static final String SAVED_GUIDE = "SAVED_GUIDE";
    public static final String GUIDEID = "GUIDEID";
+   public static final String DOMAIN = "DOMAIN";
    public static final String TOPIC_NAME_KEY = "TOPIC_NAME_KEY";
    public static final String FROM_EDIT = "FROM_EDIT_KEY";
    public static final String INBOUND_STEP_ID = "INBOUND_STEP_ID";
@@ -46,12 +53,13 @@ public class GuideViewActivity extends BaseMenuDrawerActivity implements
 
    private int mGuideid;
    private Guide mGuide;
+   private String mDomain;
    private SpeechCommander mSpeechCommander;
    private int mCurrentPage = -1;
    private int mStepOffset = 1;
    private ViewPager mPager;
    private TitlePageIndicator mIndicator;
-   private int mInboundStepId = -1;
+   private int mInboundStepId = DEFAULT_INBOUND_STEPID;
    private GuideViewAdapter mAdapter;
 
    /////////////////////////////////////////////////////
@@ -69,7 +77,11 @@ public class GuideViewActivity extends BaseMenuDrawerActivity implements
 
       if (savedInstanceState != null) {
          mGuideid = savedInstanceState.getInt(GUIDEID);
-         mGuide = (Guide) savedInstanceState.getSerializable(SAVED_GUIDE);
+         mDomain = savedInstanceState.getString(DOMAIN);
+
+         if (savedInstanceState.containsKey(SAVED_GUIDE)) {
+            mGuide = (Guide) savedInstanceState.getSerializable(SAVED_GUIDE);
+         }
 
          if (mGuide != null) {
             mCurrentPage = savedInstanceState.getInt(CURRENT_PAGE);
@@ -77,34 +89,26 @@ public class GuideViewActivity extends BaseMenuDrawerActivity implements
             setGuide(mGuide, mCurrentPage);
             mIndicator.setCurrentItem(mCurrentPage);
             mPager.setCurrentItem(mCurrentPage);
-         } else {
-            getGuide(mGuideid);
          }
       } else {
          Intent intent = getIntent();
 
          mGuideid = -1;
 
-         // Handle when the activity is started from an external app.  (like a link)
+         // Handle when the activity is started from viewing a guide link.
          if (Intent.ACTION_VIEW.equals(intent.getAction())) {
-            List<String> segments = intent.getData().getPathSegments();
-
-            try {
-               mGuideid = Integer.parseInt(segments.get(2));
-            } catch (Exception e) {
-               hideLoading();
-               Log.e("GuideViewActivity", "Problem parsing guideid out of the path segments");
-               return;
-            }
+            handleActionViewIntent(intent);
+            return;
          } else {
             extractExtras(intent.getExtras());
          }
       }
 
-      if (mGuide == null) {
-         getGuide(mGuideid);
-      } else {
+      if (mGuide != null) {
          setGuide(mGuide, mCurrentPage);
+      } else if (mDomain == null) {
+         // If mDomain is set, then we will fetch the guide in this.onSites().
+         getGuide(mGuideid);
       }
 
       //initSpeechRecognizer();
@@ -112,17 +116,49 @@ public class GuideViewActivity extends BaseMenuDrawerActivity implements
 
    private void extractExtras(Bundle extras) {
       if (extras != null) {
-         if (extras.containsKey(GuideViewActivity.GUIDEID)) {
-            mGuideid = extras.getInt(GuideViewActivity.GUIDEID);
+         if (extras.containsKey(GUIDEID)) {
+            mGuideid = extras.getInt(GUIDEID);
          }
 
          if (extras.containsKey(GuideViewActivity.SAVED_GUIDE)) {
             mGuide = (Guide) extras.getSerializable(GuideViewActivity.SAVED_GUIDE);
          }
 
-         mInboundStepId = extras.getInt(INBOUND_STEP_ID);
+         mInboundStepId = extras.getInt(INBOUND_STEP_ID, DEFAULT_INBOUND_STEPID);
          mCurrentPage = extras.getInt(GuideViewActivity.CURRENT_PAGE, 0);
       }
+   }
+
+   private void handleActionViewIntent(Intent intent) {
+      List<String> segments = intent.getData().getPathSegments();
+
+      try {
+         mGuideid = Integer.parseInt(segments.get(2));
+      } catch (Exception e) {
+         hideLoading();
+         Log.e("GuideViewActivity", "Problem parsing guideid out of the path segments", e);
+
+         MainApplication.getGaTracker().send(MapBuilder.createException(
+          new StandardExceptionParser(this, null).getDescription(
+          Thread.currentThread().getName(), e), false).build());
+
+         displayGuideNotFoundDialog();
+         return;
+      }
+
+      Site currentSite = MainApplication.get().getSite();
+      mDomain = intent.getData().getHost();
+      if (currentSite.hostMatches(mDomain)) {
+         // Load the guide for the current site.
+         getGuide(mGuideid);
+         return;
+      }
+
+      // Set site to dozuki before API call.
+      MainApplication.get().setSite(Site.getSite("dozuki"));
+
+      showLoading(R.id.loading_container);
+      APIService.call(this, APIService.getSitesAPICall());
    }
 
    @Override
@@ -168,13 +204,10 @@ public class GuideViewActivity extends BaseMenuDrawerActivity implements
 
    @Override
    public void onSaveInstanceState(Bundle state) {
-      /**
-       * TODO Figure out why we don't super.onSaveInstanceState(). I think
-       * this causes step fragments to not maintain state across orientation
-       * changes (selected thumbnail). However, I remember this failing with a
-       * call to super.onSavInstanceState(). Investigate.
-       */
-      state.putSerializable(GUIDEID, mGuideid);
+      super.onSaveInstanceState(state);
+
+      state.putInt(GUIDEID, mGuideid);
+      state.putString(DOMAIN, mDomain);
       state.putSerializable(SAVED_GUIDE, mGuide);
       state.putInt(CURRENT_PAGE, mCurrentPage);
    }
@@ -212,8 +245,8 @@ public class GuideViewActivity extends BaseMenuDrawerActivity implements
                   }
 
                   int stepGuideid = mGuide.getStep(stepNum).getGuideid();
-                  // If the step is part of a prerequisite guide, store the parents guideid so that we can get back from
-                  // editing this prerequisite.
+                  // If the step is part of a prerequisite guide, store the parents
+                  // guideid so that we can get back from editing this prerequisite.
                   if (stepGuideid != mGuide.getGuideid()) {
                      intent.putExtra(StepEditActivity.PARENT_GUIDE_ID_KEY, mGuide.getGuideid());
                   }
@@ -259,11 +292,46 @@ public class GuideViewActivity extends BaseMenuDrawerActivity implements
    /////////////////////////////////////////////////////
 
    @Subscribe
+   public void onSites(APIEvent.Sites event) {
+      if (!event.hasError()) {
+         Site selectedSite = null;
+         for (Site site : event.getResult()) {
+            if (site.hostMatches(mDomain)) {
+               selectedSite = site;
+               break;
+            }
+         }
+
+         if (selectedSite != null) {
+            // Set the site and then fetch the guide.
+            MainApplication.get().setSite(selectedSite);
+
+            // Recreating the Activity forces it to be recreated with the appropriate
+            // theme and fetch the guide from the correct site. mDomain needs to be
+            // reset otherwise the guide won't be fetched (end of onCreate()).
+            mDomain = null;
+            recreate();
+         } else {
+            Exception e = new Exception();
+            Log.e("GuideViewActivity", "Didn't find site!", e);
+
+            MainApplication.getGaTracker().send(MapBuilder.createException(
+             new StandardExceptionParser(this, null).getDescription(
+             Thread.currentThread().getName(), e), false).build());
+
+            displayGuideNotFoundDialog();
+         }
+      } else {
+         APIService.getErrorDialog(this, event).show();
+      }
+   }
+
+   @Subscribe
    public void onGuide(APIEvent.ViewGuide event) {
       if (!event.hasError()) {
          if (mGuide == null) {
             Guide guide = event.getResult();
-            if (mInboundStepId != -1) {
+            if (mInboundStepId != DEFAULT_INBOUND_STEPID) {
                for (int i = 0; i < guide.getSteps().size(); i++) {
                   if (mInboundStepId == guide.getStep(i).getStepid()) {
                      mStepOffset = 1;
@@ -279,7 +347,7 @@ public class GuideViewActivity extends BaseMenuDrawerActivity implements
             setGuide(guide, mCurrentPage);
          }
       } else {
-         APIService.getErrorDialog(GuideViewActivity.this, event).show();
+         APIService.getErrorDialog(this, event).show();
       }
    }
 
@@ -367,8 +435,7 @@ public class GuideViewActivity extends BaseMenuDrawerActivity implements
 
    public void onPageScrollStateChanged(int arg0) { }
 
-   public void onPageScrolled(int arg0, float arg1, int arg2) {
-   }
+   public void onPageScrolled(int arg0, float arg1, int arg2) { }
 
    public void onPageSelected(int currentPage) {
       mCurrentPage = currentPage;
@@ -377,6 +444,12 @@ public class GuideViewActivity extends BaseMenuDrawerActivity implements
       Tracker tracker = MainApplication.getGaTracker();
       tracker.set(Fields.SCREEN_NAME, label);
       tracker.send(MapBuilder.createAppView().build());
+   }
+
+   private void displayGuideNotFoundDialog() {
+      APIService.getErrorDialog(this, new APIEvent.ViewGuide().
+       setCode(404).
+       setError(APIError.getByStatusCode(404))).show();
    }
 
    @Override

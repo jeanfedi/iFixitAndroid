@@ -43,8 +43,6 @@ public class GalleryActivity extends BaseMenuDrawerActivity {
 
    @Override
    public void onCreate(Bundle savedInstanceState) {
-      setTheme(((MainApplication) getApplication()).getSiteTheme());
-
       super.onCreate(savedInstanceState);
 
       setContentView(R.layout.gallery_root);
@@ -117,8 +115,10 @@ public class GalleryActivity extends BaseMenuDrawerActivity {
       }
    }
 
-   @Subscribe
+   @Override
    public void onLogin(LoginEvent.Login event) {
+      super.onLogin(event);
+
       if (MainApplication.get().isFirstTimeGalleryUser()) {
          createHelpDialog().show();
          MainApplication.get().setFirstTimeGalleryUser(false);
@@ -137,6 +137,9 @@ public class GalleryActivity extends BaseMenuDrawerActivity {
       return super.onCreateOptionsMenu(menu);
    }
 
+   /**
+    * Why in the world is this class called StepAdapter?
+    */
    public class StepAdapter extends FragmentStatePagerAdapter {
 
       public StepAdapter(FragmentManager fm) {

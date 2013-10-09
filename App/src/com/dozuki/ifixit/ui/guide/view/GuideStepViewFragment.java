@@ -27,7 +27,6 @@ public class GuideStepViewFragment extends BaseFragment {
    private static final String IMAGE_TYPE = "image";
    private static final String EMBED_TYPE = "embed";
 
-   private String mStepType;
    private GuideStep mStep;
 
    private StepLinesFragment mLinesFrag;
@@ -39,30 +38,29 @@ public class GuideStepViewFragment extends BaseFragment {
 
    public GuideStepViewFragment(GuideStep step) {
       mStep = step;
-      mStepType = mStep.type();
    }
 
    @Override
    public View onCreateView(LayoutInflater inflater, ViewGroup container,
     Bundle savedInstanceState) {
-
       View view = inflater.inflate(R.layout.guide_step, container, false);
 
       if (savedInstanceState != null) {
          mStep = (GuideStep) savedInstanceState.getSerializable(GUIDE_STEP_KEY);
+         String stepType = mStep.type();
 
-         if (mStepType.equals(VIDEO_TYPE)) {
+         if (stepType.equals(VIDEO_TYPE)) {
             mVideoFrag = (StepVideoFragment) getChildFragmentManager().findFragmentByTag(STEP_VIDEO_FRAGMENT_TAG);
-         } else if (mStepType.equals(EMBED_TYPE)) {
+         } else if (stepType.equals(EMBED_TYPE)) {
             mEmbedFrag = (StepEmbedFragment) getChildFragmentManager().findFragmentByTag(STEP_EMBED_FRAGMENT_TAG);
-         } else if (mStepType.equals(IMAGE_TYPE)) {
+         } else if (stepType.equals(IMAGE_TYPE)) {
             mImageFrag = (StepImageFragment) getChildFragmentManager().findFragmentByTag(STEP_IMAGE_FRAGMENT_TAG);
          }
 
          mLinesFrag = (StepLinesFragment) getChildFragmentManager().findFragmentById(R.id.guide_step_content);
 
       } else {
-
+         String stepType = mStep.type();
          mLinesFrag = new StepLinesFragment();
          mLinesFrag.setRetainInstance(true);
          Bundle linesArgs = new Bundle();
@@ -75,7 +73,7 @@ public class GuideStepViewFragment extends BaseFragment {
           .beginTransaction()
           .add(R.id.guide_step_content, mLinesFrag);
 
-         if (mStepType.equals(VIDEO_TYPE)) {
+         if (stepType.equals(VIDEO_TYPE)) {
             Bundle videoArgs = new Bundle();
 
             videoArgs.putSerializable(StepVideoFragment.GUIDE_VIDEO_KEY, mStep.getVideo());
@@ -83,13 +81,10 @@ public class GuideStepViewFragment extends BaseFragment {
             mVideoFrag.setArguments(videoArgs);
 
             ft.add(MEDIA_CONTAINER, mVideoFrag, STEP_VIDEO_FRAGMENT_TAG);
-         } else if (mStepType.equals(EMBED_TYPE)) {
-            Bundle embedArgs = new Bundle();
-
-            embedArgs.putSerializable(StepEmbedFragment.GUIDE_EMBED_KEY, mStep.getEmbed());
-            mEmbedFrag = new StepEmbedFragment();
+         } else if (stepType.equals(EMBED_TYPE)) {
+            mEmbedFrag = StepEmbedFragment.newInstance(mStep.getEmbed());
             ft.add(MEDIA_CONTAINER, mEmbedFrag, STEP_EMBED_FRAGMENT_TAG);
-         } else if (mStepType.equals(IMAGE_TYPE)) {
+         } else if (stepType.equals(IMAGE_TYPE)) {
             mImageFrag = new StepImageFragment(mStep.getImages());
             ft.add(MEDIA_CONTAINER, mImageFrag, STEP_IMAGE_FRAGMENT_TAG);
          }
@@ -98,5 +93,12 @@ public class GuideStepViewFragment extends BaseFragment {
       }
 
       return view;
+   }
+
+   @Override
+   public void onSaveInstanceState(Bundle outState) {
+      super.onSaveInstanceState(outState);
+
+      outState.putSerializable(GUIDE_STEP_KEY, mStep);
    }
 }

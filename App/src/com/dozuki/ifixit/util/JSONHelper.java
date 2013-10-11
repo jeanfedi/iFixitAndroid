@@ -4,6 +4,7 @@ import android.util.Log;
 import com.dozuki.ifixit.MainApplication;
 import com.dozuki.ifixit.R;
 import com.dozuki.ifixit.model.Badges;
+import com.dozuki.ifixit.model.Comment;
 import com.dozuki.ifixit.model.Embed;
 import com.dozuki.ifixit.model.Image;
 import com.dozuki.ifixit.model.Item;
@@ -17,7 +18,6 @@ import com.dozuki.ifixit.model.guide.Guide;
 import com.dozuki.ifixit.model.guide.GuideInfo;
 import com.dozuki.ifixit.model.guide.GuideStep;
 import com.dozuki.ifixit.model.guide.GuideType;
-import com.dozuki.ifixit.model.guide.OEmbed;
 import com.dozuki.ifixit.model.guide.StepLine;
 import com.dozuki.ifixit.model.search.GuideSearchResult;
 import com.dozuki.ifixit.model.search.SearchResults;
@@ -31,18 +31,11 @@ import com.google.gson.reflect.TypeToken;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
-import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 
 public class JSONHelper {
    private static final String TAG = "JSONHelper";

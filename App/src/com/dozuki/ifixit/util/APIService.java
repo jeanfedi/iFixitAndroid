@@ -36,7 +36,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.net.URLEncoder;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -304,6 +303,24 @@ public class APIService extends Service {
       return apiCall;
    }
 
+   public static APICall postNewGuideComment(String comment, int guideid, int stepid) {
+      JSONObject requestBody = new JSONObject();
+      String query = guideid + "/";
+      if (stepid != -1) {
+         query += "steps/" + stepid + "/";
+      }
+
+      query +=  "comments";
+
+      try {
+         requestBody.put("text", comment);
+      } catch (JSONException e) {
+         e.printStackTrace();
+      }
+
+      return new APICall(APIEndpoint.ADD_GUIDE_COMMENT, query, requestBody.toString());
+   }
+
    public static APICall getUserFavorites(int limit, int offset) {
       return new APICall(APIEndpoint.USER_FAVORITES, "?limit=" + limit + "&offset=" + offset);
    }
@@ -332,7 +349,7 @@ public class APIService extends Service {
             requestBody.put("subject", guide.getSubject());
          }
       } catch (JSONException e) {
-         // TODO Error
+         e.printStackTrace();
       }
 
       return new APICall(APIEndpoint.CREATE_GUIDE, NO_QUERY, requestBody.toString());

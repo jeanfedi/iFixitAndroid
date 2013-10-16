@@ -84,6 +84,25 @@ public enum APIEndpoint {
       "GET"
    ),
 
+   ADD_GUIDE_COMMENT(
+    new Endpoint() {
+       public String createUrl(String query) {
+          return "guides/" + query;
+       }
+
+       public APIEvent<?> parse(String json) throws JSONException {
+          return new APIEvent.AddComment().setResult(JSONHelper.parseGuide(json));
+       }
+
+       public APIEvent<?> getEvent() {
+          return new APIEvent.AddComment();
+       }
+    },
+    true,
+    "POST"
+   ),
+
+
    TOPIC(
       new Endpoint() {
          public String createUrl(String query) {

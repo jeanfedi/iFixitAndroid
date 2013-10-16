@@ -75,6 +75,7 @@ public abstract class APIEvent<T> {
    public static class StepAdd extends APIEvent<Guide> {}
    public static class StepRemove extends APIEvent<Guide> {}
    public static class EditGuide extends APIEvent<Guide> {}
+   public static class AddComment extends APIEvent<Guide> {}
 
    public static class Sites extends APIEvent<ArrayList<Site>> {}
    public static class SiteInfo extends APIEvent<Site> {}
